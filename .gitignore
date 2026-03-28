@@ -20,7 +20,7 @@ env/
 data/raw/100k_synthea_covid19_csv/observations.csv
 data/raw/*.csv
 data/raw/*.zip
-data/processed/*.csv
+
 data/processed/*.json
 
 # Model artifacts
