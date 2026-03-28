@@ -1,0 +1,54 @@
+data:
+  dataset: "creditcard"
+  raw_path: "data/raw/creditcard.csv"
+  processed_dir: "data/processed"
+  synthetic_dir: "data/synthetic"
+  target_column: "Class"
+
+splits:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+  random_state: 42
+
+generators:
+  ctgan:
+    epochs: 300
+    batch_size: 500
+    log_frequency: true
+  tvae:
+    epochs: 300
+    batch_size: 500
+  copula:
+    default_distribution: "norm"
+
+evaluation:
+  downstream_models:
+    - xgboost
+    - random_forest
+    - logistic_regression
+  metrics:
+    - auroc
+    - auprc
+    - f1
+    - precision
+    - recall
+  aug_ratios:
+    - 1.0
+    - 2.0
+    - 5.0
+
+privacy:
+  n_neighbors: 5
+  exact_dup_check: true
+  nn_distance_check: true
+
+aws:
+  region: "us-east-1"
+  buckets:
+    raw: "synthetic-ml-raw"
+    curated: "synthetic-ml-curated"
+    models: "synthetic-ml-models"
+    synthetic: "synthetic-ml-synthetic"
+    reports: "synthetic-ml-reports"
+  prefix: "creditcard"
