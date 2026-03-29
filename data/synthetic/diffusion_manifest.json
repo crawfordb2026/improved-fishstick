@@ -1,0 +1,10 @@
+{
+  "generator": "tabddpm",
+  "train_rows": 86904,
+  "synth_rows": 86904,
+  "target_col": "DECEASED",
+  "synth_positive_rate": 0.199,
+  "real_positive_rate": 0.1945,
+  "epochs": 100,
+  "n_steps": 200
+}

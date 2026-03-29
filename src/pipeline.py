@@ -73,7 +73,7 @@ def run(config_path: str = "configs/config.yaml") -> dict:
     print("PHASE 2-3: LOAD SYNTHETIC DATASETS")
     print("=" * 70)
 
-    generator_names = ["copula", "ctgan", "tvae"]
+    generator_names = ["copula", "ctgan", "tvae", "diffusion"]
     pre_built = {
         name: synthetic_dir / f"{name}_synthetic.csv"
         for name in generator_names
@@ -91,7 +91,9 @@ def run(config_path: str = "configs/config.yaml") -> dict:
         for name, path in pre_built.items():
             df = pd.read_csv(path)
             # Generators output fractional values for binary columns — snap back to 0/1
-            for col in binary_cols:
+            # Also snap target column (diffusion outputs continuous values for it)
+            snap_cols = binary_cols + [target_col]
+            for col in snap_cols:
                 if col in df.columns:
                     df[col] = df[col].round().clip(0, 1).astype(int)
             # Rebalance target class to match real positive rate — generators

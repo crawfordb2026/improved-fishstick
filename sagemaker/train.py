@@ -117,20 +117,31 @@ def train_tvae(train_df: pd.DataFrame, target_col: str, epochs: int, batch_size:
     return model
 
 
+def train_diffusion(train_df: pd.DataFrame, epochs: int, batch_size: int,
+                    n_steps: int) -> object:
+    from tab_ddpm import TabDDPM
+    model = TabDDPM(n_steps=n_steps, epochs=epochs, batch_size=batch_size)
+    model.fit(train_df)
+    return model
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--generator',    type=str, default='ctgan',
-                        choices=['copula', 'ctgan', 'tvae'])
+                        choices=['copula', 'ctgan', 'tvae', 'diffusion'])
     parser.add_argument('--target-col',  type=str, default='DECEASED')
     parser.add_argument('--epochs',       type=int, default=300)
     parser.add_argument('--batch-size',   type=int, default=500)
     parser.add_argument('--random-state', type=int, default=42)
+    parser.add_argument('--n-steps',      type=int, default=1000)
     args = parser.parse_args()
 
     print('=' * 60)
     print(f'Generator : {args.generator}')
     print(f'Epochs    : {args.epochs}')
     print(f'Batch size: {args.batch_size}')
+    if args.generator == 'diffusion':
+        print(f'Steps     : {args.n_steps}')
     print('=' * 60)
 
     train_df = load_and_split(target_col=args.target_col, random_state=args.random_state)
@@ -141,8 +152,10 @@ def main():
         model = train_copula(train_df, args.target_col)
     elif args.generator == 'ctgan':
         model = train_ctgan(train_df, args.target_col, args.epochs, args.batch_size)
-    else:
+    elif args.generator == 'tvae':
         model = train_tvae(train_df, args.target_col, args.epochs, args.batch_size)
+    else:
+        model = train_diffusion(train_df, args.epochs, args.batch_size, args.n_steps)
     elapsed = time.time() - t0
     print(f'Training done in {elapsed:.1f}s')
 
@@ -150,12 +163,38 @@ def main():
     print(f'Generating {len(train_df):,} synthetic rows ...')
     synth_df = model.sample(num_rows=len(train_df))
 
+    # Snap binary columns back to 0/1 for diffusion model
+    if args.generator == 'diffusion':
+        import numpy as np
+        binary_cols = [
+            c for c in train_df.select_dtypes(include='number').columns
+            if c != args.target_col and set(train_df[c].dropna().unique()) <= {0, 1}
+        ]
+        for col in binary_cols:
+            if col in synth_df.columns:
+                synth_df[col] = synth_df[col].round().clip(0, 1).astype(int)
+
     # Save outputs
     synth_path = OUTPUT_DIR / f'{args.generator}_synthetic.csv'
-    model_path = OUTPUT_DIR / f'{args.generator}_model.pkl'
     synth_df.to_csv(synth_path, index=False)
-    with open(model_path, 'wb') as f:
-        pickle.dump(model, f)
+
+    # Save model — torch save for diffusion, pickle for SDV models
+    if args.generator == 'diffusion':
+        import torch
+        model_path = OUTPUT_DIR / 'diffusion_model.pt'
+        torch.save({
+            'model_state': model.model.state_dict(),
+            'config': {
+                'n_steps': model.n_steps, 'epochs': model.epochs,
+                'batch_size': model.batch_size, 'lr': model.lr,
+                'hidden_dims': model.hidden_dims, 'columns': model.columns,
+                'n_features': model.n_features,
+            }
+        }, model_path)
+    else:
+        model_path = OUTPUT_DIR / f'{args.generator}_model.pkl'
+        with open(model_path, 'wb') as f:
+            pickle.dump(model, f)
 
     manifest = {
         'generator': args.generator,

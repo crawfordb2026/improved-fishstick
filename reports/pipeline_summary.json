@@ -348,6 +348,15 @@
       "wasserstein_max": 0.4239108253658288,
       "correlation_distance": 3.2452775892534786,
       "discriminator_auroc": 0.9999980416698653
+    },
+    {
+      "generator": "diffusion",
+      "ks_mean": 0.05042853236295902,
+      "ks_max": 0.3504441682776397,
+      "wasserstein_mean": 0.03407176959183533,
+      "wasserstein_max": 0.09673005157331271,
+      "correlation_distance": 0.5030815318686513,
+      "discriminator_auroc": 0.9999821014554062
     }
   ],
   "utility": [
@@ -458,6 +467,33 @@
       "f1": 0.7757280426963685,
       "precision": 0.6691353082465973,
       "recall": 0.922715981231024
+    },
+    {
+      "training_data": "synth_diffusion",
+      "model": "xgboost",
+      "auroc": 0.9906043433703923,
+      "auprc": 0.9679367478939904,
+      "f1": 0.8450536352800954,
+      "precision": 0.7436542899097965,
+      "recall": 0.9784708804857852
+    },
+    {
+      "training_data": "synth_diffusion",
+      "model": "random_forest",
+      "auroc": 0.9896315036353358,
+      "auprc": 0.9628442039199459,
+      "f1": 0.8949143017701602,
+      "precision": 0.9113018597997139,
+      "recall": 0.8791057134971019
+    },
+    {
+      "training_data": "synth_diffusion",
+      "model": "logistic_regression",
+      "auroc": 0.9823252375685766,
+      "auprc": 0.9346009322192614,
+      "f1": 0.8427078148332504,
+      "precision": 0.767278495354634,
+      "recall": 0.9345845983991168
     },
     {
       "training_data": "mixed_copula_x1.0",
@@ -701,6 +737,87 @@
       "f1": 0.8189428366419517,
       "precision": 0.7225152985861997,
       "recall": 0.9450731438034777
+    },
+    {
+      "training_data": "mixed_diffusion_x1.0",
+      "model": "xgboost",
+      "auroc": 0.9925621022633819,
+      "auprc": 0.9743518041209691,
+      "f1": 0.7952180650874474,
+      "precision": 0.6638329329144336,
+      "recall": 0.9914435550648634
+    },
+    {
+      "training_data": "mixed_diffusion_x1.0",
+      "model": "random_forest",
+      "auroc": 0.9923250217397412,
+      "auprc": 0.9728231847883381,
+      "f1": 0.9138795986622074,
+      "precision": 0.9228820714888827,
+      "recall": 0.905051062655258
+    },
+    {
+      "training_data": "mixed_diffusion_x1.0",
+      "model": "logistic_regression",
+      "auroc": 0.9829597522645606,
+      "auprc": 0.935801114153175,
+      "f1": 0.8431081415491215,
+      "precision": 0.7640726620318457,
+      "recall": 0.94038089980679
+    },
+    {
+      "training_data": "mixed_diffusion_x2.0",
+      "model": "xgboost",
+      "auroc": 0.992383661679892,
+      "auprc": 0.9735799227192483,
+      "f1": 0.7983090443875849,
+      "precision": 0.668654491241148,
+      "recall": 0.990339497653878
+    },
+    {
+      "training_data": "mixed_diffusion_x2.0",
+      "model": "random_forest",
+      "auroc": 0.9921262310546487,
+      "auprc": 0.9725410762354725,
+      "f1": 0.9138315672058004,
+      "precision": 0.9233586925894618,
+      "recall": 0.9044990339497654
+    },
+    {
+      "training_data": "mixed_diffusion_x2.0",
+      "model": "logistic_regression",
+      "auroc": 0.9829614266400089,
+      "auprc": 0.9358872921101609,
+      "f1": 0.8436570862239842,
+      "precision": 0.7653405259608901,
+      "recall": 0.9398288711012973
+    },
+    {
+      "training_data": "mixed_diffusion_x5.0",
+      "model": "xgboost",
+      "auroc": 0.992383661679892,
+      "auprc": 0.9735799227192483,
+      "f1": 0.7983090443875849,
+      "precision": 0.668654491241148,
+      "recall": 0.990339497653878
+    },
+    {
+      "training_data": "mixed_diffusion_x5.0",
+      "model": "random_forest",
+      "auroc": 0.9921262310546487,
+      "auprc": 0.9725410762354725,
+      "f1": 0.9138315672058004,
+      "precision": 0.9233586925894618,
+      "recall": 0.9044990339497654
+    },
+    {
+      "training_data": "mixed_diffusion_x5.0",
+      "model": "logistic_regression",
+      "auroc": 0.9829614266400089,
+      "auprc": 0.9358872921101609,
+      "f1": 0.8436570862239842,
+      "precision": 0.7653405259608901,
+      "recall": 0.9398288711012973
     }
   ],
   "privacy": [
@@ -727,7 +844,15 @@
       "nn_median_distance": 2.2582971866523565,
       "nn_frac_below_0.1": 0.0,
       "rare_memorisation_rate": 0.0
+    },
+    {
+      "generator": "diffusion",
+      "exact_dup_rate": 0.0,
+      "nn_mean_distance": 2.5601209686372064,
+      "nn_median_distance": 2.515249310833025,
+      "nn_frac_below_0.1": 0.0,
+      "rare_memorisation_rate": 0.0
     }
   ],
-  "elapsed_seconds": 208.5249810218811
+  "elapsed_seconds": 317.315269947052
 }

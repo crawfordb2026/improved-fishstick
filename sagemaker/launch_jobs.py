@@ -22,13 +22,17 @@ ROLE_ARN   = f'arn:aws:iam::{ACCOUNT}:role/SyntheticMLSageMakerRole'
 DATA_S3    = f's3://{BUCKET}/synthea/data'
 OUTPUT_S3  = f's3://{BUCKET}/synthea/output'
 
-# ml.m5.4xlarge: 16 vCPU, 64 GB RAM — good for tabular; no GPU needed
-INSTANCE_TYPE = 'ml.m5.4xlarge'
+# ml.m5.4xlarge: 16 vCPU, 64 GB RAM — SDV generators (no GPU needed)
+CPU_INSTANCE = 'ml.m5.4xlarge'
+# ml.g4dn.xlarge: 1x NVIDIA T4 GPU, 4 vCPU, 16 GB RAM — diffusion model
+GPU_INSTANCE = 'ml.g4dn.xlarge'
 
 GENERATORS = [
-    {'name': 'copula', 'epochs': 1,   'batch_size': 500},  # copula ignores epochs
-    {'name': 'ctgan',  'epochs': 300, 'batch_size': 500},
-    {'name': 'tvae',   'epochs': 300, 'batch_size': 500},
+    {'name': 'copula',    'epochs': 1,   'batch_size': 500,  'instance': CPU_INSTANCE},
+    {'name': 'ctgan',     'epochs': 300, 'batch_size': 500,  'instance': CPU_INSTANCE},
+    {'name': 'tvae',      'epochs': 300, 'batch_size': 500,  'instance': CPU_INSTANCE},
+    {'name': 'diffusion', 'epochs': 300, 'batch_size': 1024, 'instance': GPU_INSTANCE,
+     'n_steps': 1000},
 ]
 
 
@@ -44,22 +48,26 @@ def submit_jobs() -> dict[str, str]:
         name = gen['name']
         base_job_name = f'synth-{name}'
 
+        hyperparams = {
+            'generator':    name,
+            'target-col':   'DECEASED',
+            'epochs':       gen['epochs'],
+            'batch-size':   gen['batch_size'],
+            'random-state': 42,
+        }
+        if 'n_steps' in gen:
+            hyperparams['n-steps'] = gen['n_steps']
+
         estimator = PyTorch(
             entry_point='train.py',
             source_dir='sagemaker',
             role=ROLE_ARN,
-            instance_type=INSTANCE_TYPE,
+            instance_type=gen['instance'],
             instance_count=1,
             framework_version='2.2',
             py_version='py310',
             base_job_name=base_job_name,
-            hyperparameters={
-                'generator':    name,
-                'target-col':   'DECEASED',
-                'epochs':       gen['epochs'],
-                'batch-size':   gen['batch_size'],
-                'random-state': 42,
-            },
+            hyperparameters=hyperparams,
             output_path=OUTPUT_S3,
             sagemaker_session=session,
         )
