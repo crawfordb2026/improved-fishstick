@@ -225,3 +225,11 @@ Configure `ACCOUNT`, `REGION`, `ROLE_ARN` in `sagemaker/launch_jobs.py` before r
 - All binary (0/1) columns are marked `sdtype='categorical'` in SDV metadata to prevent TVAE dimensional collapse
 - Six zero-inflated count/monetary columns (`encounter_inpatient`, `encounter_emergency`, `encounter_total`, `condition_count`, `healthcare_expenses`, `healthcare_coverage`) are log1p-transformed before StandardScaler
 - Discriminator AUROC = 1.0 across all generators is a known ceiling for zero-inflated tabular EHR data, not a bug — the encounter columns dominate the discriminator signal regardless of generator quality
+
+---
+
+## Team
+
+- **Crawford Barnett**
+- **Matthew Weber**
+- **Tyler Hintz**
