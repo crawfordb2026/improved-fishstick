@@ -1,134 +1,140 @@
-# Synthetic Data Generator — Privacy-Safe ML Benchmark
+# Synthara — Synthetic EHR Generation & Benchmark
 
-A 24-hour hackathon prototype that generates synthetic tabular financial data and evaluates it across three dimensions: **realism**, **downstream ML utility**, and **privacy leakage**.
+A hackathon project that generates synthetic patient records from real EHR data and evaluates them across three dimensions: **realism**, **downstream ML utility**, and **privacy leakage**.
 
 ## The problem
 
-Real financial datasets (fraud records, transaction histories) cannot be freely shared due to privacy regulations. Synthetic data generation offers a way to share privacy-conscious stand-ins — but only if the synthetic data is actually useful and not just a noisy copy.
+Real patient data is locked behind HIPAA. Synthetic data generation offers a privacy-safe stand-in — but only if the synthetic records are actually statistically faithful and useful for training ML models.
 
 ## What this builds
 
-A full benchmark pipeline that:
+An end-to-end benchmark pipeline that:
 
-1. Generates synthetic data from multiple models
-2. Proves whether each model's output is realistic
-3. Proves whether it's useful for downstream fraud detection
-4. Proves it doesn't leak real training records
+1. Flattens relational Synthea EHR tables into a single patient-level feature matrix
+2. Trains four generative models in parallel on AWS SageMaker
+3. Evaluates every generator on realism, ML utility, and privacy
 
 ```
-Raw CSV  ──►  Profile  ──►  Preprocess  ──►  Train generators
-                                                     │
-                            ┌────────────────────────┤
-                            │            │            │
-                        Copula        CTGAN         TVAE
-                            │            │            │
-                            └────────────┴────────────┘
-                                         │
-                          ┌──────────────┼──────────────┐
-                          │              │              │
-                     Realism eval   Utility eval   Privacy checks
-                     (KS, Wass,     (AUROC, F1     (dup rate,
-                      corr dist,     on real        NN distance,
-                      discriminator) test set)      memorisation)
-                          │              │              │
-                          └──────────────┴──────────────┘
-                                         │
-                                  Reports + CSV scorecards
+Synthea CSVs ──► Flatten ──► Preprocess ──► Train generators (SageMaker)
+                                                      │
+                              ┌───────────────────────┼───────────────────────┐
+                              │           │            │                       │
+                           Copula      CTGAN         TVAE                TabDDPM
+                              │           │            │                       │
+                              └───────────┴────────────┴───────────────────────┘
+                                                      │
+                               ┌──────────────────────┼──────────────────────┐
+                               │                      │                      │
+                          Realism eval           Utility eval          Privacy checks
+                          (KS, Wasserstein,      (AUROC, AUPRC,        (dup rate,
+                           corr distance,         F1 on real            NN distance,
+                           discriminator)         test set)             memorisation)
+                               │                      │                      │
+                               └──────────────────────┴──────────────────────┘
+                                                      │
+                                           Reports + CSV scorecards
 ```
 
 ---
 
 ## Dataset
 
-**ULB Credit Card Fraud Detection** (Kaggle)
+**Synthea COVID-19 Synthetic EHR** ([synthea.mitre.org](https://synthea.mitre.org/downloads))
 
-- 284,807 transactions over two days
-- 492 fraud cases (0.172% positive rate)
-- 28 PCA-anonymised features (V1–V28) + Amount + Time
-- Target: `Class` (0 = legit, 1 = fraud)
+- 124,150 patients with COVID-19 module
+- Flattened from 8+ relational tables into 35 features per patient
+- Target: `DECEASED` (0 = survived, 1 = died) — 19.5% positive rate
 
-Download:
-```bash
-# Kaggle CLI
-kaggle datasets download -d mlg-ulb/creditcardfraud
-unzip creditcardfraud.zip -d data/raw/
-```
+Download the 100k COVID-19 dataset from [synthea.mitre.org/downloads](https://synthea.mitre.org/downloads) and place the CSVs in `data/raw/100k_synthea_covid19_csv/`.
 
-Or download `creditcard.csv` from [Kaggle](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) and place it in `data/raw/`.
+### Feature groups (35 total)
+
+| Group | Count | Examples |
+|---|---|---|
+| Demographics | 5 | age, gender, race, hispanic, marital_status |
+| Conditions | 9 | diabetes, hypertension, obesity, pneumonia, anemia |
+| Encounters | 4 | inpatient, emergency, outpatient, total |
+| Vitals | 10 | BMI, systolic/diastolic BP, O₂ saturation, heart rate |
+| Financials | 7 | healthcare_expenses, healthcare_coverage |
 
 ---
 
 ## Generators
 
-| Model | Type | Library | Notes |
-|---|---|---|---|
-| **Gaussian Copula** | Statistical | SDV | Fast classical baseline |
-| **CTGAN** | GAN | SDV / ctgan | Strong tabular GAN |
-| **TVAE** | VAE | SDV | Latent generative model |
+| Model | Type | Library | Epochs | Instance |
+|---|---|---|---|---|
+| **Gaussian Copula** | Statistical | SDV | — | ml.m5.4xlarge |
+| **CTGAN** | GAN | SDV | 300 | ml.m5.4xlarge |
+| **TVAE** | VAE | SDV | 300 | ml.m5.4xlarge |
+| **TabDDPM** | Diffusion | Custom (PyTorch) | 100 | ml.m5.4xlarge |
+
+TabDDPM is a custom implementation of Kotelnikov et al. (2023) — a denoising diffusion probabilistic model adapted for tabular data. The denoiser is a 3.34M parameter MLP with residual blocks and sinusoidal timestep embeddings.
 
 ---
 
-## Evaluation metrics
+## Results
 
-### Realism
-| Metric | Ideal | Interpretation |
-|---|---|---|
-| KS statistic (mean) | → 0 | Per-column distribution similarity |
-| Wasserstein distance (mean) | → 0 | Earth-mover cost between distributions |
-| Correlation matrix distance | → 0 | Feature correlation structure preserved |
-| Discriminator AUROC | → 0.5 | Classifier cannot tell real from synthetic |
+### Realism (lower is better, discriminator → 0.5 is better)
 
-### Downstream ML utility
-All models evaluated on the same held-out **real** test set.
+| Generator | KS Mean | KS Max | Wasserstein Mean | Corr Distance | Discriminator AUROC |
+|---|---|---|---|---|---|
+| Copula | 0.111 | 0.678 | 0.126 | 3.237 | 1.000 |
+| CTGAN | 0.100 | 0.678 | 0.075 | 1.652 | 1.000 |
+| TVAE | 0.108 | 0.678 | 0.094 | 3.245 | 1.000 |
+| **TabDDPM** | **0.050** | **0.350** | **0.034** | **0.503** | 1.000 |
 
-Training strategies compared:
-- Real data only (gold standard)
-- Synthetic data only (each generator)
-- Mixed real + synthetic (augmentation ratios 1×, 2×, 5×)
+### Utility — train on synthetic, test on real (higher is better)
 
-Downstream models: XGBoost · Random Forest · Logistic Regression
+| Training Data | Best AUROC | Best AUPRC | Best F1 |
+|---|---|---|---|
+| Real only | 0.9926 | 0.9746 | 0.9155 |
+| Copula | 0.9603 | 0.8956 | 0.7295 |
+| CTGAN | 0.9680 | 0.8938 | 0.7903 |
+| TVAE | 0.9769 | 0.9246 | 0.8097 |
+| **TabDDPM** | **0.9906** | **0.9679** | **0.8949** |
+| Real + TabDDPM | 0.9926 | 0.9744 | 0.9139 |
 
-Metrics: AUROC · AUPRC · F1 · Precision · Recall
+TabDDPM closes to within **0.002 AUROC** of real data.
 
-### Privacy leakage
-| Check | What it catches |
-|---|---|
-| Exact duplicate rate | Verbatim copy of training rows |
-| NN distance (synth → real) | How close synthetic rows are to training data |
-| Rare record memorisation | Whether minority-class (fraud) records are reproduced |
+### Privacy — all generators pass
+
+- 0 exact duplicates across all four generators
+- 0 memorized rare records (deceased patients reproduced within distance 0.05)
+- Nearest-neighbor distances well above the 0.1 danger threshold
 
 ---
 
 ## Project structure
 
 ```
-improved-fishstick/
+synthara/
 ├── configs/
-│   └── config.yaml               # All hyperparameters and paths
+│   └── config.yaml                    # Hyperparameters and paths
 ├── data/
-│   ├── raw/                      # creditcard.csv goes here
-│   ├── processed/                # train/val/test splits (auto-generated)
-│   └── synthetic/                # generator outputs (auto-generated)
-├── notebooks/
-│   ├── 01_full_pipeline.ipynb    # Main demo notebook
-│   └── 02_sagemaker_training.ipynb  # AWS SageMaker parallel training
+│   ├── raw/                           # Synthea CSV files go here
+│   ├── processed/                     # train/val/test splits (auto-generated)
+│   └── synthetic/                     # Generator outputs (auto-generated)
+├── sagemaker/
+│   ├── train.py                       # SageMaker training entry point
+│   ├── launch_jobs.py                 # Submit + poll all 4 parallel jobs
+│   ├── tab_ddpm.py                    # TabDDPM model classes
+│   └── requirements.txt              # SageMaker container dependencies
 ├── src/
 │   ├── preprocessing/
-│   │   └── preprocess.py         # Load, profile, split, standardise
+│   │   ├── flatten_ehr.py             # Join Synthea tables → patient_features.csv
+│   │   └── preprocess.py             # Split, log-transform, standardise
 │   ├── generators/
-│   │   └── train_generators.py   # Copula, CTGAN, TVAE training + generation
+│   │   └── train_generators.py        # Local Copula/CTGAN/TVAE training
 │   ├── evaluation/
-│   │   ├── realism.py            # KS, Wasserstein, discriminator, PCA plots
-│   │   └── utility.py            # Downstream fraud classifier benchmark
+│   │   ├── realism.py                 # KS, Wasserstein, discriminator, PCA plots
+│   │   └── utility.py                 # Downstream ML benchmark
 │   ├── privacy/
-│   │   └── privacy_checks.py     # Dup rate, NN distance, memorisation
-│   ├── utils/
-│   │   └── s3_utils.py           # S3 upload/download helpers
-│   └── pipeline.py               # End-to-end CLI runner
+│   │   └── privacy_checks.py          # Dup rate, NN distance, memorisation
+│   └── pipeline.py                    # End-to-end CLI runner
+├── diffusion.py                       # Standalone local TabDDPM training script
 ├── outputs/
-│   └── models/                   # Saved generator .pkl files
-├── reports/                      # All plots and CSV scorecards
-└── requirements.txt
+│   └── models/                        # Saved model files (.pkl / .pt)
+└── reports/                           # All plots and CSV scorecards
 ```
 
 ---
@@ -138,117 +144,84 @@ improved-fishstick/
 ### 1. Install dependencies
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Download dataset
+### 2. Flatten the EHR data
 
 ```bash
-kaggle datasets download -d mlg-ulb/creditcardfraud
-unzip creditcardfraud.zip -d data/raw/
+python src/preprocessing/flatten_ehr.py
 ```
+
+Reads from `data/raw/100k_synthea_covid19_csv/`, writes `data/raw/patient_features.csv`.
 
 ### 3. Run the full pipeline
 
-**Option A — Jupyter notebook** (recommended for demo):
-```bash
-jupyter notebook notebooks/01_full_pipeline.ipynb
-```
-
-**Option B — CLI**:
 ```bash
 python -m src.pipeline --config configs/config.yaml
 ```
 
-### 4. Find results in `reports/`
+This preprocesses, loads pre-built synthetic CSVs (if present), and runs all evaluation phases.
+
+### 4. Train generators
+
+**Option A — AWS SageMaker (all 4 in parallel):**
+```bash
+python sagemaker/launch_jobs.py
+```
+
+**Option B — Local SDV models only:**
+```bash
+python -m src.pipeline --config configs/config.yaml  # trains locally if no synthetic CSVs found
+```
+
+**Option C — Local TabDDPM:**
+```bash
+python diffusion.py --epochs 100 --steps 200 --batch-size 1024
+```
+
+### 5. Find results in `reports/`
 
 | File | Contents |
 |---|---|
-| `realism_scorecard.csv` | KS, Wasserstein, correlation, discriminator AUROC per generator |
-| `utility_results.csv` | AUROC, AUPRC, F1, Precision, Recall per training strategy × model |
-| `privacy_scorecard.csv` | Dup rate, NN distance, memorisation rate per generator |
-| `distribution_comparison.png` | KDE overlays for real vs each synthetic generator |
+| `realism_scorecard.csv` | KS, Wasserstein, correlation distance, discriminator AUROC |
+| `utility_results.csv` | AUROC, AUPRC, F1 per training strategy × classifier |
+| `privacy_scorecard.csv` | Dup rate, NN distance, memorisation rate |
+| `distribution_comparison.png` | KDE overlays: real vs each generator |
 | `correlation_heatmaps.png` | Side-by-side correlation matrices |
 | `pca_overlap.png` | PCA scatter: real vs synthetic |
-| `utility_auroc.png` | Bar chart: AUROC by training strategy |
+| `utility_auroc.png` / `utility_auprc.png` | Bar charts by training strategy |
+| `utility_heatmap.png` | Full metric heatmap across all conditions |
 | `privacy_nn_distances.png` | NN distance distributions |
 | `pipeline_summary.json` | All results in one JSON |
 
 ---
 
-## AWS architecture
+## AWS SageMaker setup
+
+All four training jobs run in parallel. Each pulls `patient_features.csv` from S3 and pushes `{generator}_synthetic.csv` + the model artifact back to S3.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        AWS Cloud                            │
-│                                                             │
-│  S3 Buckets                                                 │
-│  ┌──────────────────┐  ┌──────────────────┐                │
-│  │ synthetic-ml-raw │  │synthetic-ml-      │                │
-│  │  creditcard.csv  │  │curated/           │                │
-│  └──────────────────┘  │  train.csv        │                │
-│                         │  val.csv          │                │
-│                         │  test.csv         │                │
-│                         └──────────────────┘                │
-│                                                             │
-│  SageMaker                                                  │
-│  ┌──────────────────────────────────────┐                  │
-│  │   Training Jobs (parallel)           │                  │
-│  │   ┌──────────┐ ┌───────┐ ┌────────┐ │                  │
-│  │   │  Copula  │ │ CTGAN │ │  TVAE  │ │                  │
-│  │   │ job      │ │ job   │ │ job    │ │                  │
-│  │   └──────────┘ └───────┘ └────────┘ │                  │
-│  └──────────────────────────────────────┘                  │
-│                         │                                   │
-│                         ▼                                   │
-│  ┌──────────────────┐  ┌──────────────────┐                │
-│  │synthetic-ml-      │  │synthetic-ml-     │                │
-│  │synthetic/         │  │reports/          │                │
-│  │  copula_synth.csv │  │  scorecards      │                │
-│  │  ctgan_synth.csv  │  │  plots           │                │
-│  │  tvae_synth.csv   │  │  summary.json    │                │
-│  └──────────────────┘  └──────────────────┘                │
-│                                                             │
-│  CloudWatch — training logs and metrics                     │
-└─────────────────────────────────────────────────────────────┘
+S3: synthetic-ml-{account}/synthea/data/patient_features.csv
+         │
+         ├──► synth-copula    (ml.m5.4xlarge)
+         ├──► synth-ctgan     (ml.m5.4xlarge)
+         ├──► synth-tvae      (ml.m5.4xlarge)
+         └──► synth-diffusion (ml.m5.4xlarge)
+                   │
+                   ▼
+S3: synthetic-ml-{account}/synthea/output/{job}/output/model.tar.gz
 ```
 
-For SageMaker-based parallel training, see `notebooks/02_sagemaker_training.ipynb`.
+Configure `ACCOUNT`, `REGION`, `ROLE_ARN` in `sagemaker/launch_jobs.py` before running.
 
 ---
 
-## Tune for speed (hackathon mode)
+## Key engineering notes
 
-Reduce training time by lowering epochs in `configs/config.yaml`:
-
-```yaml
-generators:
-  ctgan:
-    epochs: 50    # default 300
-  tvae:
-    epochs: 50    # default 300
-```
-
-Copula trains in seconds. With 50 epochs CTGAN/TVAE finish in ~3-5 minutes on CPU.
-
----
-
-## Pitch summary
-
-> We built a synthetic tabular data benchmark pipeline on AWS that generates privacy-conscious synthetic financial data, compares multiple generative models, and evaluates each one on realism, downstream fraud detection utility, and privacy leakage risk. Instead of just generating fake rows, we built a full scorecard that tells you whether synthetic data is actually useful and safe enough to matter.
-
----
-
-## FAQ
-
-**Q: Why three generators instead of just one?**
-A: Tabular generation is unstable. No single model dominates. CTGAN often wins on realism, Copula on speed, TVAE on utility. The scorecard decides.
-
-**Q: How do you prove privacy safety?**
-A: We don't claim it blindly. We run three empirical checks — exact duplication, nearest-neighbour distance, and minority-record memorisation — and report the results.
-
-**Q: Why fraud detection for the utility test?**
-A: It's the hardest downstream task on this dataset. AUPRC on a 0.17% positive rate stress-tests whether the synthetic data preserved the rare but important patterns.
-
-**Q: Why AWS?**
-A: Managed training at scale, clean S3 data lineage, easy experiment tracking, and a clear path to production synthetic data refresh pipelines.
+- `flatten_ehr.py` uses `regex=False` on all `str.contains()` calls — condition keywords like `"Body mass index 30+"` contain regex metacharacters that silently zero out columns with the default `regex=True`
+- All binary (0/1) columns are marked `sdtype='categorical'` in SDV metadata to prevent TVAE dimensional collapse
+- Six zero-inflated count/monetary columns (`encounter_inpatient`, `encounter_emergency`, `encounter_total`, `condition_count`, `healthcare_expenses`, `healthcare_coverage`) are log1p-transformed before StandardScaler
+- Discriminator AUROC = 1.0 across all generators is a known ceiling for zero-inflated tabular EHR data, not a bug — the encounter columns dominate the discriminator signal regardless of generator quality
