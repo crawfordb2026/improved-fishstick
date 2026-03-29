@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synthetic EHR Data Benchmark</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="slideshow">
+
+    <!-- ── SLIDE 1: Title ── -->
+    <div class="slide active" id="slide-1">
+      <div class="center-content">
+        <div class="tag">Hackathon Project</div>
+        <h1>Synthetic EHR Data<br><span class="accent">Generation &amp; Evaluation</span></h1>
+        <p class="subtitle">Can AI-generated patient records replace real health data?<br>
+          A four-model benchmark on Synthea COVID-19 EHR data.</p>
+        <div class="pill-row">
+          <span class="pill">Gaussian Copula</span>
+          <span class="pill">CTGAN</span>
+          <span class="pill">TVAE</span>
+          <span class="pill highlight">TabDDPM</span>
+        </div>
+        <p class="meta">124,150 patients · 35 features · AWS SageMaker training</p>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 2: Problem ── -->
+    <div class="slide" id="slide-2">
+      <div class="two-col">
+        <div class="col-text">
+          <div class="tag">The Problem</div>
+          <h2>Real patient data is<br>hard to share</h2>
+          <ul class="feature-list">
+            <li>HIPAA &amp; privacy regulations limit research access</li>
+            <li>Rare conditions have too few real samples to train on</li>
+            <li>Data sharing between hospitals creates legal risk</li>
+            <li>ML models need large labeled datasets to generalize</li>
+          </ul>
+          <div class="callout">
+            <strong>The idea:</strong> Train generative models on real EHR data,
+            then release statistically-faithful synthetic records that carry
+            zero privacy risk.
+          </div>
+        </div>
+        <div class="col-visual">
+          <div class="icon-stack">
+            <div class="icon-card red">🔒 Real Data<br><small>Protected · Scarce</small></div>
+            <div class="arrow-down">↓ generate</div>
+            <div class="icon-card green">🧬 Synthetic Data<br><small>Shareable · Unlimited</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 3: Dataset ── -->
+    <div class="slide" id="slide-3">
+      <div class="two-col">
+        <div class="col-text">
+          <div class="tag">The Dataset</div>
+          <h2>Synthea COVID-19<br>EHR Records</h2>
+          <p>Synthea generates realistic synthetic patient records. We used the
+             COVID-19 module — patients with conditions, encounters, vitals,
+             medications, and outcomes.</p>
+          <div class="stat-row">
+            <div class="stat"><span class="num">124,150</span><span class="lbl">patients</span></div>
+            <div class="stat"><span class="num">35</span><span class="lbl">features</span></div>
+            <div class="stat"><span class="num">19.5%</span><span class="lbl">mortality rate</span></div>
+          </div>
+          <div class="callout">
+            <strong>Target:</strong> <code>DECEASED</code> — predict patient death from
+            demographics, conditions, encounter history, and vitals.
+          </div>
+        </div>
+        <div class="col-visual">
+          <div class="feature-groups">
+            <div class="fgroup">
+              <div class="fgroup-title">Demographics (5)</div>
+              <div class="ftags">
+                <span>age</span><span>gender</span><span>race</span>
+                <span>hispanic</span><span>marital_status</span>
+              </div>
+            </div>
+            <div class="fgroup">
+              <div class="fgroup-title">Conditions (9)</div>
+              <div class="ftags">
+                <span>diabetes</span><span>hypertension</span><span>obesity</span>
+                <span>pneumonia</span><span>anemia</span><span>asthma</span>
+                <span>+ 3 more</span>
+              </div>
+            </div>
+            <div class="fgroup">
+              <div class="fgroup-title">Encounters (4)</div>
+              <div class="ftags">
+                <span>inpatient</span><span>emergency</span><span>outpatient</span><span>total</span>
+              </div>
+            </div>
+            <div class="fgroup">
+              <div class="fgroup-title">Vitals &amp; Financials (17)</div>
+              <div class="ftags">
+                <span>BMI</span><span>blood pressure</span><span>O₂ sat</span>
+                <span>expenses</span><span>coverage</span><span>+ 12 more</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 4: Flattening ── -->
+    <div class="slide" id="slide-4">
+      <div class="center-content wide">
+        <div class="tag">Data Engineering</div>
+        <h2>Flattening Relational EHR Tables → 35 Features</h2>
+        <p class="subtitle-sm">Synthea stores data across 8+ relational tables. We joined them into a single patient-level feature vector.</p>
+        <div class="pipeline-flow">
+          <div class="pf-box">
+            <div class="pf-title">patients.csv</div>
+            <div class="pf-sub">demographics, DOB, gender, race</div>
+          </div>
+          <div class="pf-arrow">+</div>
+          <div class="pf-box">
+            <div class="pf-title">conditions.csv</div>
+            <div class="pf-sub">ICD codes → binary flags</div>
+          </div>
+          <div class="pf-arrow">+</div>
+          <div class="pf-box">
+            <div class="pf-title">encounters.csv</div>
+            <div class="pf-sub">count by type</div>
+          </div>
+          <div class="pf-arrow">+</div>
+          <div class="pf-box">
+            <div class="pf-title">observations.csv</div>
+            <div class="pf-sub">latest vitals per patient</div>
+          </div>
+          <div class="pf-arrow">=</div>
+          <div class="pf-box highlight-box">
+            <div class="pf-title">patient_features.csv</div>
+            <div class="pf-sub">35 cols · 124,150 rows</div>
+          </div>
+        </div>
+        <div class="bug-callout">
+          <span class="bug-icon">🐛</span>
+          <div>
+            <strong>Bug found &amp; fixed:</strong> <code>str.contains()</code> with default
+            <code>regex=True</code> misinterpreted condition keywords like
+            <code>"Body mass index 30+"</code> and <code>"Anemia (disorder)"</code> as
+            regex patterns — causing 7 condition columns to be all-zero.
+            Fixed with <code>regex=False</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 5: Models ── -->
+    <div class="slide" id="slide-5">
+      <div class="center-content wide">
+        <div class="tag">The Four Generators</div>
+        <h2>How Each Model Works</h2>
+        <div class="model-cards">
+          <div class="model-card">
+            <div class="model-icon">📐</div>
+            <div class="model-name">Gaussian Copula</div>
+            <div class="model-desc">Fits marginal distributions to each column, then models correlations with a multivariate Gaussian. Fast, interpretable, closed-form.</div>
+            <div class="model-tag">SDV · CPU · seconds</div>
+          </div>
+          <div class="model-card">
+            <div class="model-icon">⚔️</div>
+            <div class="model-name">CTGAN</div>
+            <div class="model-desc">Conditional GAN with mode-specific normalization. Generator battles discriminator to produce realistic tabular rows. Handles multi-modal distributions.</div>
+            <div class="model-tag">SDV · CPU · 300 epochs</div>
+          </div>
+          <div class="model-card">
+            <div class="model-icon">🗜️</div>
+            <div class="model-name">TVAE</div>
+            <div class="model-desc">Variational autoencoder adapted for tabular data. Encodes rows into latent space, decodes to produce synthetic samples. Good at capturing structure.</div>
+            <div class="model-tag">SDV · CPU · 300 epochs</div>
+          </div>
+          <div class="model-card highlight-card">
+            <div class="model-icon">🌊</div>
+            <div class="model-name">TabDDPM</div>
+            <div class="model-desc">Denoising Diffusion Probabilistic Model for tabular data. Learns to reverse a Gaussian noise process. MLP denoiser with sinusoidal timestep embeddings.</div>
+            <div class="model-tag">Custom · 3.3M params · 100 epochs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 6: Training Journey ── -->
+    <div class="slide" id="slide-6">
+      <div class="center-content wide">
+        <div class="tag">The Journey</div>
+        <h2>3 Rounds of Debugging Before Good Results</h2>
+        <div class="timeline">
+          <div class="tl-item">
+            <div class="tl-dot red"></div>
+            <div class="tl-content">
+              <div class="tl-title">Run 1 — Discriminator AUROC = 1.0</div>
+              <div class="tl-desc">All models easily spotted as fake. Investigated root cause: 7 condition columns were all-zero due to regex bug in flattening. TVAE race/hispanic columns collapsed to zero.</div>
+            </div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot yellow"></div>
+            <div class="tl-content">
+              <div class="tl-title">Fix 1 — Regex &amp; metadata</div>
+              <div class="tl-desc">Added <code>regex=False</code> to all <code>str.contains()</code> calls. Marked all binary columns as <code>categorical</code> in SDV metadata to prevent TVAE dimensional collapse.</div>
+            </div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot yellow"></div>
+            <div class="tl-content">
+              <div class="tl-title">Run 2 — Still 1.0, found next issue</div>
+              <div class="tl-desc">Discriminator still maxed. Discovered <code>encounter_inpatient</code> KS = 0.677 — zero-inflated distribution that generators can't replicate. Also found 14–16% synthetic DECEASED rate vs real 19.5%.</div>
+            </div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot yellow"></div>
+            <div class="tl-content">
+              <div class="tl-title">Fix 2 — Log transform + rebalancing</div>
+              <div class="tl-desc">Applied <code>log1p</code> to 6 count/monetary columns before StandardScaler. Added post-hoc DECEASED rebalancing to match real positive rate.</div>
+            </div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot green"></div>
+            <div class="tl-content">
+              <div class="tl-title">Run 3 — Best SDV results + added TabDDPM</div>
+              <div class="tl-desc">TVAE utility AUROC hit 0.977. Added custom diffusion model — KS dropped to 0.050, Wasserstein to 0.034, diffusion utility AUROC reached 0.9906 (real: 0.9926).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 7: AWS ── -->
+    <div class="slide" id="slide-7">
+      <div class="two-col">
+        <div class="col-text">
+          <div class="tag">Infrastructure</div>
+          <h2>Trained on AWS<br>SageMaker</h2>
+          <p>All four models trained as parallel SageMaker Training Jobs — no waiting for one to finish before the next starts.</p>
+          <ul class="feature-list">
+            <li>Copula, CTGAN, TVAE → <code>ml.m5.4xlarge</code><br><small>16 vCPU · 64 GB RAM</small></li>
+            <li>TabDDPM → <code>ml.m5.4xlarge</code> (CPU fallback)<br><small>GPU quota exceeded on hackathon account</small></li>
+            <li>Input data from S3 · output artifacts back to S3</li>
+            <li>Poll &amp; download with custom Python orchestration</li>
+          </ul>
+        </div>
+        <div class="col-visual">
+          <div class="aws-diagram">
+            <div class="aws-box">S3 Bucket<br><small>patient_features.csv</small></div>
+            <div class="aws-arrows">
+              <span>→</span><span>→</span><span>→</span><span>→</span>
+            </div>
+            <div class="aws-jobs">
+              <div class="aws-job">copula<br><small>m5.4xl</small></div>
+              <div class="aws-job">ctgan<br><small>m5.4xl</small></div>
+              <div class="aws-job">tvae<br><small>m5.4xl</small></div>
+              <div class="aws-job accent-job">diffusion<br><small>m5.4xl</small></div>
+            </div>
+            <div class="aws-arrows">
+              <span>↓</span><span>↓</span><span>↓</span><span>↓</span>
+            </div>
+            <div class="aws-box">S3 Output<br><small>*_synthetic.csv · model.pkl/.pt</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 8: Realism ── -->
+    <div class="slide" id="slide-8">
+      <div class="center-content wide">
+        <div class="tag">Realism Evaluation</div>
+        <h2>How Statistically Similar is the Synthetic Data?</h2>
+        <div class="table-wrap">
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>Generator</th>
+                <th>KS Mean ↓</th>
+                <th>KS Max ↓</th>
+                <th>Wasserstein Mean ↓</th>
+                <th>Corr Distance ↓</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gen-pill copula">Copula</span></td>
+                <td>0.111</td><td>0.678</td><td>0.126</td><td>3.237</td>
+              </tr>
+              <tr>
+                <td><span class="gen-pill ctgan">CTGAN</span></td>
+                <td>0.100</td><td>0.678</td><td>0.075</td><td>1.652</td>
+              </tr>
+              <tr>
+                <td><span class="gen-pill tvae">TVAE</span></td>
+                <td>0.108</td><td>0.678</td><td>0.094</td><td>3.245</td>
+              </tr>
+              <tr class="highlight-row">
+                <td><span class="gen-pill diffusion">TabDDPM</span></td>
+                <td><strong>0.050</strong></td>
+                <td><strong>0.350</strong></td>
+                <td><strong>0.034</strong></td>
+                <td><strong>0.503</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="insight-row">
+          <div class="insight">
+            <span class="insight-num">2×</span>
+            <span class="insight-lbl">lower KS statistic<br>than next best</span>
+          </div>
+          <div class="insight">
+            <span class="insight-num">6×</span>
+            <span class="insight-lbl">lower correlation<br>structure distance</span>
+          </div>
+          <div class="insight">
+            <span class="insight-num">1.0</span>
+            <span class="insight-lbl">discriminator AUROC<br>all models (known ceiling)</span>
+          </div>
+        </div>
+        <p class="footnote">KS and Wasserstein measure per-column distribution distance. Correlation distance measures how well inter-feature relationships are preserved. Discriminator AUROC = 1.0 is a known ceiling for zero-inflated tabular EHR data.</p>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 9: Realism images ── -->
+    <div class="slide" id="slide-9">
+      <div class="center-content wide">
+        <div class="tag">Realism Visualization</div>
+        <h2>Distribution &amp; Correlation Comparison</h2>
+        <div class="image-tabs">
+          <div class="tab-btns">
+            <button class="tab-btn active" data-target="img-dist">Distributions</button>
+            <button class="tab-btn" data-target="img-corr">Correlations</button>
+            <button class="tab-btn" data-target="img-pca">PCA Overlap</button>
+          </div>
+          <div class="tab-panels">
+            <div class="tab-panel active" id="img-dist">
+              <img src="../reports/distribution_comparison.png" alt="Distribution comparison" />
+            </div>
+            <div class="tab-panel" id="img-corr">
+              <img src="../reports/correlation_heatmaps.png" alt="Correlation heatmaps" />
+            </div>
+            <div class="tab-panel" id="img-pca">
+              <img src="../reports/pca_overlap.png" alt="PCA overlap" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 10: Utility ── -->
+    <div class="slide" id="slide-10">
+      <div class="center-content wide">
+        <div class="tag">ML Utility Evaluation</div>
+        <h2>Train on Synthetic · Test on Real</h2>
+        <p class="subtitle-sm">If a model trained purely on synthetic data can classify real patients, the synthetic data carries genuine predictive signal.</p>
+        <div class="table-wrap">
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>Training Data</th>
+                <th>Best AUROC ↑</th>
+                <th>Best AUPRC ↑</th>
+                <th>Best F1 ↑</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="real-row">
+                <td><span class="gen-pill real">Real Only</span></td>
+                <td><strong>0.9926</strong></td><td><strong>0.9746</strong></td><td><strong>0.9155</strong></td>
+              </tr>
+              <tr>
+                <td><span class="gen-pill copula">Copula</span></td>
+                <td>0.9603</td><td>0.8956</td><td>0.7295</td>
+              </tr>
+              <tr>
+                <td><span class="gen-pill ctgan">CTGAN</span></td>
+                <td>0.9680</td><td>0.8938</td><td>0.7903</td>
+              </tr>
+              <tr>
+                <td><span class="gen-pill tvae">TVAE</span></td>
+                <td>0.9769</td><td>0.9246</td><td>0.8097</td>
+              </tr>
+              <tr class="highlight-row">
+                <td><span class="gen-pill diffusion">TabDDPM</span></td>
+                <td><strong>0.9906</strong></td>
+                <td><strong>0.9679</strong></td>
+                <td><strong>0.8949</strong></td>
+              </tr>
+              <tr class="mixed-row">
+                <td><span class="gen-pill mixed">Real + Diffusion</span></td>
+                <td>0.9926</td><td>0.9744</td><td>0.9139</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="gap-callout">
+          <strong>Utility gap (TabDDPM vs Real):</strong>
+          AUROC −0.0020 · AUPRC −0.0067 · F1 −0.0206
+          — effectively indistinguishable for downstream ML tasks.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 11: Utility images ── -->
+    <div class="slide" id="slide-11">
+      <div class="center-content wide">
+        <div class="tag">ML Utility Visualization</div>
+        <h2>Performance Across Models &amp; Augmentation Ratios</h2>
+        <div class="image-tabs">
+          <div class="tab-btns">
+            <button class="tab-btn active" data-target="img-auroc">AUROC</button>
+            <button class="tab-btn" data-target="img-auprc">AUPRC</button>
+            <button class="tab-btn" data-target="img-heat">Heatmap</button>
+          </div>
+          <div class="tab-panels">
+            <div class="tab-panel active" id="img-auroc">
+              <img src="../reports/utility_auroc.png" alt="AUROC comparison" />
+            </div>
+            <div class="tab-panel" id="img-auprc">
+              <img src="../reports/utility_auprc.png" alt="AUPRC comparison" />
+            </div>
+            <div class="tab-panel" id="img-heat">
+              <img src="../reports/utility_heatmap.png" alt="Utility heatmap" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 12: Privacy ── -->
+    <div class="slide" id="slide-12">
+      <div class="center-content wide">
+        <div class="tag">Privacy Analysis</div>
+        <h2>Does the Synthetic Data Leak Real Patients?</h2>
+        <div class="privacy-grid">
+          <div class="priv-check">
+            <div class="priv-icon">✅</div>
+            <div class="priv-title">Zero Exact Duplicates</div>
+            <div class="priv-desc">No synthetic row is an exact copy of a training record across all four generators.</div>
+          </div>
+          <div class="priv-check">
+            <div class="priv-icon">✅</div>
+            <div class="priv-title">No Memorization</div>
+            <div class="priv-desc">Zero rare minority-class records (deceased patients) reproduced within distance 0.05.</div>
+          </div>
+          <div class="priv-check">
+            <div class="priv-icon">✅</div>
+            <div class="priv-title">Safe NN Distances</div>
+            <div class="priv-desc">Nearest-neighbor distances well above 0.1 threshold — no synthetic row is suspiciously close to a real record.</div>
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top:1.5rem">
+          <table class="results-table compact">
+            <thead>
+              <tr>
+                <th>Generator</th>
+                <th>Exact Duplicates</th>
+                <th>NN Mean Distance</th>
+                <th>NN Median Distance</th>
+                <th>Memorized Rare Records</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><span class="gen-pill copula">Copula</span></td><td>0</td><td>4.03</td><td>3.97</td><td>0</td></tr>
+              <tr><td><span class="gen-pill ctgan">CTGAN</span></td><td>0</td><td>3.05</td><td>2.92</td><td>0</td></tr>
+              <tr><td><span class="gen-pill tvae">TVAE</span></td><td>0</td><td>2.35</td><td>2.26</td><td>0</td></tr>
+              <tr class="highlight-row"><td><span class="gen-pill diffusion">TabDDPM</span></td><td>0</td><td>2.56</td><td>2.52</td><td>0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <img src="../reports/privacy_nn_distances.png" alt="NN distances" class="priv-img" />
+      </div>
+    </div>
+
+    <!-- ── SLIDE 13: Diffusion deep dive ── -->
+    <div class="slide" id="slide-13">
+      <div class="two-col">
+        <div class="col-text">
+          <div class="tag">Deep Dive · TabDDPM</div>
+          <h2>How the Diffusion<br>Model Works</h2>
+          <p>Based on Kotelnikov et al. (2023). Adapts image diffusion (DDPM) to tabular data.</p>
+          <div class="steps-list">
+            <div class="step"><span class="step-num">1</span><div><strong>Forward process:</strong> Gradually add Gaussian noise to real rows over T=200 steps until they're pure noise.</div></div>
+            <div class="step"><span class="step-num">2</span><div><strong>Train denoiser:</strong> MLP with residual blocks + sinusoidal timestep embeddings learns to predict and remove noise.</div></div>
+            <div class="step"><span class="step-num">3</span><div><strong>Sample:</strong> Start from random noise, reverse 200 denoising steps to produce new synthetic rows.</div></div>
+          </div>
+          <div class="model-specs">
+            <span>3.34M params</span>
+            <span>4 hidden layers [512→1024→1024→512]</span>
+            <span>100 epochs · 1145s training</span>
+          </div>
+        </div>
+        <div class="col-visual">
+          <div class="diffusion-diagram">
+            <div class="diff-row">
+              <div class="diff-box real">Real Row<br><small>35 features</small></div>
+              <div class="diff-arrow">→ +noise ×200 →</div>
+              <div class="diff-box noise">Pure Noise<br><small>N(0,1)</small></div>
+            </div>
+            <div class="diff-train">
+              <div class="diff-mlp">
+                MLP Denoiser<br>
+                <small>sinusoidal timestep embedding</small><br>
+                <small>residual blocks · LayerNorm · SiLU</small>
+              </div>
+            </div>
+            <div class="diff-row reverse">
+              <div class="diff-box synth">Synthetic Row<br><small>35 features</small></div>
+              <div class="diff-arrow">← −noise ×200 ←</div>
+              <div class="diff-box noise">Pure Noise<br><small>N(0,1)</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 14: Results Summary ── -->
+    <div class="slide" id="slide-14">
+      <div class="center-content">
+        <div class="tag">Final Results</div>
+        <h2>TabDDPM Wins on<br><span class="accent">Every Metric</span></h2>
+        <div class="winner-grid">
+          <div class="winner-card">
+            <div class="w-metric">KS Distance</div>
+            <div class="w-winner">TabDDPM</div>
+            <div class="w-val">0.050 <span class="vs">vs 0.100–0.111</span></div>
+          </div>
+          <div class="winner-card">
+            <div class="w-metric">Wasserstein</div>
+            <div class="w-winner">TabDDPM</div>
+            <div class="w-val">0.034 <span class="vs">vs 0.075–0.126</span></div>
+          </div>
+          <div class="winner-card">
+            <div class="w-metric">Corr Structure</div>
+            <div class="w-winner">TabDDPM</div>
+            <div class="w-val">0.503 <span class="vs">vs 1.65–3.25</span></div>
+          </div>
+          <div class="winner-card">
+            <div class="w-metric">Utility AUROC</div>
+            <div class="w-winner">TabDDPM</div>
+            <div class="w-val">0.9906 <span class="vs">vs 0.960–0.977</span></div>
+          </div>
+          <div class="winner-card">
+            <div class="w-metric">Utility Gap vs Real</div>
+            <div class="w-winner">TabDDPM</div>
+            <div class="w-val">−0.0020 AUROC <span class="vs">effectively identical</span></div>
+          </div>
+          <div class="winner-card">
+            <div class="w-metric">Privacy</div>
+            <div class="w-winner">All Pass ✓</div>
+            <div class="w-val">0 duplicates · 0 memorized</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 15: Takeaways ── -->
+    <div class="slide" id="slide-15">
+      <div class="center-content">
+        <div class="tag">Conclusions</div>
+        <h2>What We Learned</h2>
+        <div class="takeaway-list">
+          <div class="takeaway">
+            <span class="tk-num">01</span>
+            <div><strong>Diffusion models outperform GANs/VAEs on EHR data</strong> — especially on preserving inter-feature correlation structure. The gap is substantial, not marginal.</div>
+          </div>
+          <div class="takeaway">
+            <span class="tk-num">02</span>
+            <div><strong>Data quality bugs dominate early results.</strong> A single <code>regex=True</code> default wiped out 7 condition columns. Clean flattening mattered more than model architecture for the first two runs.</div>
+          </div>
+          <div class="takeaway">
+            <span class="tk-num">03</span>
+            <div><strong>Zero-inflated counts are a hard ceiling for all generators.</strong> Encounter columns with 90%+ zeros kept discriminator AUROC at 1.0 regardless of model improvements.</div>
+          </div>
+          <div class="takeaway">
+            <span class="tk-num">04</span>
+            <div><strong>Synthetic-only training reaches 99.8% of real-data AUROC.</strong> TabDDPM-generated records are good enough to replace real data for training downstream ML classifiers.</div>
+          </div>
+          <div class="takeaway">
+            <span class="tk-num">05</span>
+            <div><strong>Privacy is preserved across all models.</strong> No memorization, no duplicates — the synthetic data can be freely shared without HIPAA risk.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /slideshow -->
+
+  <!-- Navigation -->
+  <div id="nav">
+    <button id="prev-btn" onclick="changeSlide(-1)">&#8592;</button>
+    <div id="slide-counter"><span id="current-num">1</span> / <span id="total-num">15</span></div>
+    <button id="next-btn" onclick="changeSlide(1)">&#8594;</button>
+  </div>
+
+  <!-- Dot indicators -->
+  <div id="dots"></div>
+
+  <!-- Keyboard hint -->
+  <div id="key-hint">← → arrow keys to navigate</div>
+
+  <script src="script.js"></script>
+</body>
+</html>
