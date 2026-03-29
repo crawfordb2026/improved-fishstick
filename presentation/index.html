@@ -234,7 +234,7 @@
         <div class="split-right">
           <table class="rtable">
             <thead>
-              <tr><th>Generator</th><th>Duplicates</th><th>NN Mean Dist</th><th>Memorized</th></tr>
+              <tr><th>Generator</th><th>Duplicates</th><th><span class="tip" data-tip="Average distance from each synthetic row to its nearest real training record. Higher = more different from real data = better privacy. Values well above 0.1 indicate no synthetic row is suspiciously close to any real patient.">NN Mean Dist</span></th><th>Memorized</th></tr>
             </thead>
             <tbody>
               <tr><td><span class="gp copula">Copula</span></td><td>0</td><td>4.03</td><td>0</td></tr>
@@ -271,7 +271,7 @@
         <h2>What we learned.</h2>
         <div class="tk-list">
           <div class="tk"><span class="tk-n">01</span><div><strong>Diffusion models are in a different class.</strong> Correlation distance 0.503 vs 1.65–3.25 — not marginal, architectural.</div></div>
-          <div class="tk"><span class="tk-n">02</span><div><strong>Data quality dominated the first two runs.</strong> One wrong default (<code>regex=True</code>) zeroed 7 columns and invalidated everything. Engineering mattered more than model choice.</div></div>
+          <div class="tk"><span class="tk-n">02</span><div><strong>Garbage in, garbage out — no matter how good the model.</strong> One wrong default (<code>regex=True</code>) silently corrupted 7 features and invalidated two full training rounds before we found it.</div></div>
           <div class="tk"><span class="tk-n">03</span><div><strong>Synthetic-only training reaches AUROC 0.9906 vs real 0.9926.</strong> Good enough to replace real EHR data for downstream ML — shareable with zero HIPAA risk.</div></div>
         </div>
       </div>
