@@ -19,7 +19,7 @@ Synthea CSVs ──► Flatten ──► Preprocess ──► Train generators (
                                                       │
                               ┌───────────────────────┼───────────────────────┐
                               │           │            │                       │
-                           Copula      CTGAN         TVAE                TabDDPM
+                           Copula      CTGAN         TVAE                Tabular Diffusion
                               │           │            │                       │
                               └───────────┴────────────┴───────────────────────┘
                                                       │
@@ -66,9 +66,9 @@ Download the 100k COVID-19 dataset from [synthea.mitre.org/downloads](https://sy
 | **Gaussian Copula** | Statistical | SDV | — | ml.m5.4xlarge |
 | **CTGAN** | GAN | SDV | 300 | ml.m5.4xlarge |
 | **TVAE** | VAE | SDV | 300 | ml.m5.4xlarge |
-| **TabDDPM** | Diffusion | Custom (PyTorch) | 100 | ml.m5.4xlarge |
+| **Tabular Diffusion** | Diffusion | Custom (PyTorch) | 100 | ml.m5.4xlarge |
 
-TabDDPM is a custom implementation of Kotelnikov et al. (2023) — a denoising diffusion probabilistic model adapted for tabular data. The denoiser is a 3.34M parameter MLP with residual blocks and sinusoidal timestep embeddings.
+Tabular Diffusion is a custom implementation of Kotelnikov et al. (2023) — a denoising diffusion probabilistic model adapted for tabular data. The denoiser is a 3.34M parameter MLP with residual blocks and sinusoidal timestep embeddings.
 
 ---
 
@@ -81,7 +81,7 @@ TabDDPM is a custom implementation of Kotelnikov et al. (2023) — a denoising d
 | Copula | 0.111 | 0.678 | 0.126 | 3.237 | 1.000 |
 | CTGAN | 0.100 | 0.678 | 0.075 | 1.652 | 1.000 |
 | TVAE | 0.108 | 0.678 | 0.094 | 3.245 | 1.000 |
-| **TabDDPM** | **0.050** | **0.350** | **0.034** | **0.503** | 1.000 |
+| **Tabular Diffusion** | **0.050** | **0.350** | **0.034** | **0.503** | 1.000 |
 
 ### Utility — train on synthetic, test on real (higher is better)
 
@@ -91,10 +91,10 @@ TabDDPM is a custom implementation of Kotelnikov et al. (2023) — a denoising d
 | Copula | 0.9603 | 0.8956 | 0.7295 |
 | CTGAN | 0.9680 | 0.8938 | 0.7903 |
 | TVAE | 0.9769 | 0.9246 | 0.8097 |
-| **TabDDPM** | **0.9906** | **0.9679** | **0.8949** |
-| Real + TabDDPM | 0.9926 | 0.9744 | 0.9139 |
+| **Tabular Diffusion** | **0.9906** | **0.9679** | **0.8949** |
+| Real + Tabular Diffusion | 0.9926 | 0.9744 | 0.9139 |
 
-TabDDPM closes to within **0.002 AUROC** of real data.
+Tabular Diffusion closes to within **0.002 AUROC** of real data.
 
 ### Privacy — all generators pass
 
@@ -117,7 +117,7 @@ synthara/
 ├── sagemaker/
 │   ├── train.py                       # SageMaker training entry point
 │   ├── launch_jobs.py                 # Submit + poll all 4 parallel jobs
-│   ├── tab_ddpm.py                    # TabDDPM model classes
+│   ├── tab_ddpm.py                    # Tabular Diffusion model classes
 │   └── requirements.txt              # SageMaker container dependencies
 ├── src/
 │   ├── preprocessing/
@@ -131,7 +131,7 @@ synthara/
 │   ├── privacy/
 │   │   └── privacy_checks.py          # Dup rate, NN distance, memorisation
 │   └── pipeline.py                    # End-to-end CLI runner
-├── diffusion.py                       # Standalone local TabDDPM training script
+├── diffusion.py                       # Standalone local Tabular Diffusion training script
 ├── outputs/
 │   └── models/                        # Saved model files (.pkl / .pt)
 └── reports/                           # All plots and CSV scorecards
@@ -177,7 +177,7 @@ python sagemaker/launch_jobs.py
 python -m src.pipeline --config configs/config.yaml  # trains locally if no synthetic CSVs found
 ```
 
-**Option C — Local TabDDPM:**
+**Option C — Local Tabular Diffusion:**
 ```bash
 python diffusion.py --epochs 100 --steps 200 --batch-size 1024
 ```
