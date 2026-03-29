@@ -188,7 +188,7 @@
           <div class="results-table-wrap">
             <table class="rtable">
               <thead>
-                <tr><th>Training Data</th><th>AUROC ↑</th><th>AUPRC ↑</th><th>F1 ↑</th></tr>
+                <tr><th>Training Data</th><th><span class="tip" data-tip="Area Under ROC Curve — measures how well the model ranks positive vs negative cases. 1.0 = perfect, 0.5 = random.">AUROC ↑</span></th><th><span class="tip" data-tip="Area Under Precision-Recall Curve — better metric for imbalanced classes like mortality prediction.">AUPRC ↑</span></th><th><span class="tip" data-tip="F1 Score — harmonic mean of precision and recall. Balances false positives and false negatives.">F1 ↑</span></th></tr>
               </thead>
               <tbody>
                 <tr class="real-row"><td><span class="gp real">Real Only</span></td><td><strong>0.9926</strong></td><td><strong>0.9746</strong></td><td><strong>0.9155</strong></td></tr>
@@ -201,7 +201,7 @@
             <div class="gap-note">Diffusion vs Real: <strong>−0.002 AUROC</strong> — effectively indistinguishable.</div>
           </div>
           <div class="big-numbers-col">
-            <div class="big-number-block"><span class="bn">99.8%</span><span class="bn-lbl">of real-data AUROC<br>using only synthetic</span></div>
+            <div class="big-number-block"><span class="bn">0.9906</span><span class="bn-lbl">diffusion AUROC<br>real data: 0.9926</span></div>
           </div>
         </div>
         <div class="image-tabs" style="margin-top:1.2rem">
@@ -272,7 +272,7 @@
         <div class="tk-list">
           <div class="tk"><span class="tk-n">01</span><div><strong>Diffusion models are in a different class.</strong> Correlation distance 0.503 vs 1.65–3.25 — not marginal, architectural.</div></div>
           <div class="tk"><span class="tk-n">02</span><div><strong>Data quality dominated the first two runs.</strong> One wrong default (<code>regex=True</code>) zeroed 7 columns and invalidated everything. Engineering mattered more than model choice.</div></div>
-          <div class="tk"><span class="tk-n">03</span><div><strong>Synthetic-only training reaches 99.8% of real-data AUROC.</strong> Good enough to replace real EHR data for downstream ML — shareable with zero HIPAA risk.</div></div>
+          <div class="tk"><span class="tk-n">03</span><div><strong>Synthetic-only training reaches AUROC 0.9906 vs real 0.9926.</strong> Good enough to replace real EHR data for downstream ML — shareable with zero HIPAA risk.</div></div>
         </div>
       </div>
     </div>
